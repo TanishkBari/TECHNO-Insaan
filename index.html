@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tanishk Bari | Game Dev Portfolio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Orbitron', sans-serif; }
+        body { background: #000; color: white; overflow: hidden; }
+        canvas { position: fixed; inset: 0; z-index: -1; }
+
+        /* --- LOADING SCREEN --- */
+        #loader {
+            position: fixed; inset: 0; background: #000; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 1s ease;
+        }
+        .load-text {
+            color: cyan; font-size: 1.5rem; letter-spacing: 5px;
+            text-shadow: 0 0 10px cyan; margin-bottom: 20px; animation: blink 1s infinite;
+        }
+        .load-bar-wrap { width: 300px; height: 4px; background: rgba(0, 255, 255, 0.1); border: 1px solid #b300ff; position: relative; }
+        #load-bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: cyan; box-shadow: 0 0 15px cyan; transition: width 0.4s ease; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* Navigation */
+        .menu { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); display: none; gap: 15px; z-index: 100; }
+        .menu button { padding: 10px 20px; background: rgba(0,0,0,0.8); border: 1px solid cyan; color: cyan; cursor: pointer; transition: 0.3s; font-size: 0.7rem; }
+        .menu button:hover { background: cyan; color: black; box-shadow: 0 0 15px cyan; }
+
+        /* Sections */
+        .section { display: none; height: 100vh; width: 100%; text-align: center; overflow-y: auto; padding: 100px 20px; }
+        .section.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+        /* Profile Photo */
+        .pfp-container { position: relative; width: 180px; height: 180px; margin-bottom: 20px; }
+        .pfp-wrap { width: 100%; height: 100%; border-radius: 50%; border: 4px solid #b300ff; box-shadow: 0 0 30px #b300ff; overflow: hidden; cursor: pointer; background: #111; }
+        .pfp-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        .pfp-change-hint { position: absolute; inset: 0; background: rgba(0,0,0,0.6); border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 0.6rem; pointer-events: none; }
+        .pfp-container:hover .pfp-change-hint { display: flex; }
+
+        h1 { font-size: 3.5rem; text-shadow: 0 0 20px cyan; margin-bottom: 10px; }
+        .sub { color: #b300ff; letter-spacing: 5px; margin-bottom: 30px; }
+
+        /* Bottom Control Bar */
+        .bottom-bar { position: fixed; bottom: 30px; width: 100%; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 50px; z-index: 100; }
+        .btn-group { display: flex; flex-direction: column; gap: 5px; align-items: center; }
+        .btn-main { padding: 12px 25px; background: transparent; border: 2px solid cyan; color: cyan; cursor: pointer; font-weight: bold; font-size: 0.8rem; transition: 0.3s; text-decoration: none; }
+        .btn-main:hover { background: cyan; color: black; box-shadow: 0 0 20px cyan; }
+        
+        /* Contact Display Middle */
+        .contact-box { color: cyan; text-align: center; cursor: pointer; transition: 0.3s; margin-bottom: 10px; }
+        .contact-box:hover { text-shadow: 0 0 15px cyan; transform: scale(1.1); }
+        .contact-label { font-size: 0.5rem; color: #b300ff; letter-spacing: 2px; }
+        .contact-num { font-size: 1.1rem; font-weight: bold; }
+
+        .small-change { font-size: 0.6rem; color: #b300ff; cursor: pointer; background: none; border: none; text-decoration: underline; opacity: 0.7; }
+        .small-change:hover { opacity: 1; color: cyan; }
+
+        /* Cards */
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; width: 90%; max-width: 1100px; margin-top: 20px; }
+        .card { background: rgba(0,0,0,0.8); border: 1px solid #b300ff; padding: 20px; text-align: left; cursor: pointer; transition: 0.3s; position: relative; }
+        .card:hover { border-color: cyan; transform: scale(1.02); }
+        .card h3 { color: cyan; margin-bottom: 10px; }
+        .status-tag { font-size: 0.6rem; color: #b300ff; margin-top: 10px; display: block; }
+        .card-change-btn { position: absolute; top: 10px; right: 10px; font-size: 0.5rem; padding: 4px 8px; border: 1px solid #b300ff; color: #b300ff; background: transparent; display: none; cursor: pointer; }
+        .card:hover .card-change-btn { display: block; }
+
+        #pdf-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; padding: 50px; flex-direction: column; }
+        iframe { width: 100%; height: 100%; border: 1px solid cyan; }
+    </style>
+</head>
+<body>
+
+<div id="loader">
+    <div class="load-text">INITIALIZING SYSTEM...</div>
+    <div class="load-bar-wrap"><div id="load-bar"></div></div>
+</div>
+
+<div class="menu" id="nav">
+    <button onclick="nav('home')" onmouseenter="playHover()" onmousedown="playClick()">HOME</button>
+    <button onclick="nav('missions')" onmouseenter="playHover()" onmousedown="playClick()">MISSIONS</button>
+    <button onclick="nav('arsenal')" onmouseenter="playHover()" onmousedown="playClick()">ARSENAL</button>
+    <button onclick="nav('academy')" onmouseenter="playHover()" onmousedown="playClick()">ACADEMY</button>
+</div>
+
+<div id="app">
+    <section id="home" class="section active">
+        <div class="pfp-container" onclick="document.getElementById('pfpIn').click()" onmouseenter="playHover()">
+            <div class="pfp-wrap"><img id="pfpImg" src="https://via.placeholder.com/180/000000/00ffff?text=PHOTO"></div>
+            <div class="pfp-change-hint">UPDATE PHOTO</div>
+            <input type="file" id="pfpIn" hidden accept="image/*">
+        </div>
+        <h1>TANISHK BARI</h1>
+        <div class="sub">GAME DEVELOPER</div>
+        <button class="btn-main" style="padding: 15px 40px; font-size: 1.1rem;" onclick="startCareer()" onmouseenter="playHover()" onmousedown="playClick()">START CAREER MODE</button>
+
+        <div class="bottom-bar">
+            <div class="btn-group">
+                <input type="file" id="resIn" hidden accept=".pdf">
+                <button class="btn-main" id="upRes" onclick="document.getElementById('resIn').click()" onmouseenter="playHover()" onmousedown="playClick()">UPLOAD RESUME</button>
+                <button class="btn-main" id="viewRes" style="display:none;" onclick="openRes()" onmouseenter="playHover()" onmousedown="playClick()">VIEW RESUME</button>
+                <button class="small-change" id="changeRes" style="display:none;" onclick="document.getElementById('resIn').click()">RE-UPLOAD</button>
+            </div>
+
+            <div class="contact-box" onclick="changeContact()" onmouseenter="playHover()" onmousedown="playClick()">
+                <div class="contact-label">ENCRYPTED COMMS</div>
+                <div class="contact-num" id="displayNum">+91 8655277708</div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-main" id="setLi" onclick="setLi()" onmouseenter="playHover()" onmousedown="playClick()">SET LINKEDIN</button>
+                <button class="btn-main" id="warpLi" style="display:none;" onclick="warpLi()" onmouseenter="playHover()" onmousedown="playClick()">WARP TO LINKEDIN</button>
+                <button class="small-change" id="changeLi" style="display:none;" onclick="setLi()">CHANGE LINK</button>
+            </div>
+        </div>
+    </section>
+
+    <section id="missions" class="section">
+        <h1>MISSIONS</h1>
+        <div class="cards">
+            <div class="card" onclick="handleCardClick('file1')" onmouseenter="playHover()" onmousedown="playClick()">
+                <button class="card-change-btn" onclick="event.stopPropagation(); document.getElementById('file1').click()">CHANGE</button>
+                <h3>Racing Game</h3>
+                <p>Optimized physics and player controls.</p>
+                <span id="tag1" class="status-tag">EMPTY - CLICK TO LOAD FILE</span>
+                <input type="file" id="file1" hidden onchange="saveFile(this, 'tag1')">
+            </div>
+            <div class="card" onclick="handleCardClick('file2')" onmouseenter="playHover()" onmousedown="playClick()">
+                <button class="card-change-btn" onclick="event.stopPropagation(); document.getElementById('file2').click()">CHANGE</button>
+                <h3>Cubic Level</h3>
+                <p>Logic-based environmental puzzles.</p>
+                <span id="tag2" class="status-tag">EMPTY - CLICK TO LOAD FILE</span>
+                <input type="file" id="file2" hidden onchange="saveFile(this, 'tag2')">
+            </div>
+            <div class="card" onclick="handleCardClick('file3')" onmouseenter="playHover()" onmousedown="playClick()">
+                <button class="card-change-btn" onclick="event.stopPropagation(); document.getElementById('file3').click()">CHANGE</button>
+                <h3>Runner</h3>
+                <p>Endless generation and collision mechanics.</p>
+                <span id="tag3" class="status-tag">EMPTY - CLICK TO LOAD FILE</span>
+                <input type="file" id="file3" hidden onchange="saveFile(this, 'tag3')">
+            </div>
+        </div>
+    </section>
+
+    <section id="arsenal" class="section">
+        <h1>ARSENAL</h1>
+        <div class="cards">
+            <div class="card" style="grid-column: 1 / -1; max-width: 600px; margin: 0 auto;" onmouseenter="playHover()">
+                <h3>Languages & Tech</h3>
+                <ul style="list-style:none; font-size: 0.8rem; line-height: 1.6;">
+                    <li>HTML - <b>Professional</b></li>
+                    <li>Java - <b>Intermediate</b></li>
+                    <li>DBMS - <b>Intermediate</b></li>
+                    <li>RDBMS - <b>Intermediate</b></li>
+                    <li>CSS - <b>Intermediate</b></li>
+                    <li>Python - <b>Beginner</b></li>
+                    <li>JavaScript - <b>Beginner</b></li>
+                    <li>C++ - <b>Beginner</b></li>
+                    <li>C# - <b>Beginner</b></li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section id="academy" class="section">
+        <h1>ACADEMY</h1>
+        <div class="cards">
+            <div class="card" onmouseenter="playHover()">
+                <h3>BSc IT (Pursuing)</h3>
+                <p>VIVA COLLEGE</p>
+            </div>
+            <div class="card" onmouseenter="playHover()">
+                <h3>HSC</h3>
+                <p>ST. PETERS COLLEGE, VASAI</p>
+                <span class="status-tag">Maharashtra Board</span>
+            </div>
+            <div class="card" onmouseenter="playHover()">
+                <h3>SSC</h3>
+                <p>NATIONAL ENGLISH HIGH SCHOOL</p>
+                <span class="status-tag">Maharashtra Board</span>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div id="pdf-modal">
+    <button class="btn-main" style="align-self: flex-end; border-color: red; color: red; margin-bottom: 10px;" onclick="document.getElementById('pdf-modal').style.display='none'" onmousedown="playClick()">CLOSE X</button>
+    <iframe id="pdf-frame"></iframe>
+</div>
+
+<script>
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(f, t, d, v) {
+        let o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+        g.gain.setValueAtTime(v, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(); o.stop(audioCtx.currentTime + d);
+    }
+    const playHover = () => playSound(800, 'sine', 0.1, 0.05);
+    const playClick = () => playSound(400, 'square', 0.15, 0.1);
+
+    window.onload = () => {
+        let bar = document.getElementById('load-bar'), p = 0;
+        let iv = setInterval(() => {
+            p += Math.random() * 25;
+            if (p >= 100) {
+                p = 100; clearInterval(iv);
+                setTimeout(() => { document.getElementById('loader').style.opacity = '0';
+                setTimeout(() => document.getElementById('loader').style.display = 'none', 1000)}, 500);
+            }
+            bar.style.width = p + "%";
+        }, 200);
+    };
+
+    const missionFiles = {};
+    const handleCardClick = (id) => missionFiles[id] ? window.open(missionFiles[id], '_blank') : document.getElementById(id).click();
+    const saveFile = (input, tagId) => {
+        if (input.files[0]) {
+            if (missionFiles[input.id]) URL.revokeObjectURL(missionFiles[input.id]);
+            missionFiles[input.id] = URL.createObjectURL(input.files[0]);
+            document.getElementById(tagId).innerText = "READY: " + input.files[0].name;
+            document.getElementById(tagId).style.color = "cyan";
+        }
+    };
+
+    function nav(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+    function startCareer() { document.getElementById('nav').style.display = 'flex'; nav('missions'); }
+
+    document.getElementById('pfpIn').onchange = (e) => {
+        const fr = new FileReader();
+        fr.onload = (v) => document.getElementById('pfpImg').src = v.target.result;
+        fr.readAsDataURL(e.target.files[0]);
+    };
+
+    let resData, liUrl;
+    document.getElementById('resIn').onchange = (e) => {
+        if(e.target.files[0]) {
+            const fr = new FileReader();
+            fr.onload = (v) => {
+                resData = v.target.result;
+                document.getElementById('upRes').style.display = 'none';
+                document.getElementById('viewRes').style.display = 'block';
+                document.getElementById('changeRes').style.display = 'block';
+            };
+            fr.readAsDataURL(e.target.files[0]);
+        }
+    };
+    const openRes = () => { document.getElementById('pdf-frame').src = resData; document.getElementById('pdf-modal').style.display = 'flex'; };
+
+    const setLi = () => {
+        let u = prompt("Paste LinkedIn URL:", liUrl || "");
+        if(u) {
+            liUrl = u;
+            document.getElementById('setLi').style.display = 'none';
+            document.getElementById('warpLi').style.display = 'block';
+            document.getElementById('changeLi').style.display = 'block';
+        }
+    };
+    const warpLi = () => window.open(liUrl, '_blank');
+
+    function changeContact() {
+        let newNum = prompt("Update Contact Number:", document.getElementById('displayNum').innerText);
+        if(newNum) document.getElementById('displayNum').innerText = newNum;
+    }
+
+    const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const rend = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    rend.setSize(window.innerWidth, window.innerHeight); document.body.appendChild(rend.domElement);
+    const grid = new THREE.GridHelper(1000, 40, 0x00ffff, 0x330066); grid.position.y = -20; sc.add(grid);
+    cam.position.z = 100;
+    const anim = () => { requestAnimationFrame(anim); grid.position.z += 1; if(grid.position.z > 25) grid.position.z = 0; rend.render(sc, cam); };
+    anim();
+</script>
+</body>
+</html>
